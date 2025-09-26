@@ -188,8 +188,9 @@ namespace ARM
                             // change of PC, flush pipeline
                             ThumbState = (R[15] & 1) != 0;
                             R[15] &= ~1u;
+                            ExecutionLog.Add($" -> State={(ThumbState ? "Thumb" : "ARM")}");
                         }
-                        ExecutionLog.AddAndFlush($" -> 0x{R[15]:X8} ({(ThumbState ? "Thumb" : "ARM")})");
+                        ExecutionLog.FlushCurrentEntry();
                         return;
                     }
             }

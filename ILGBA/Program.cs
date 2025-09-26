@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Reflection.Emit;
 using ARM;
+using FileBrowser;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using ImGuiNET;
@@ -12,9 +13,28 @@ Tests.DecoderTests.LinkBit();
 
 ARM.CPU cpu = new();
 
-var running = false;
+var fileBrowser = new ImFileBrowser(ImGuiFileBrowserFlags.None);
+fileBrowser.SetTitle("Browse Files");
+fileBrowser.SetPwd(Environment.CurrentDirectory);
+fileBrowser.SetTypeFilters(new List<string> { "*.gba" });
+
 GUI.Window.OnTick += () =>
 {
+    fileBrowser.Display();
+
+    if (fileBrowser.HasSelected())
+    {
+        cpu.bus.LoadBIOS();
+
+        //cpu.bus.LoadROM("/Users/olim/Desktop/GBA/ILGBA/res/mini.gba");
+
+        cpu.bus.LoadROM(fileBrowser.GetSelected()[0]);
+
+        cpu.R[15] = 0x08000000; 
+
+        fileBrowser.ClearSelected();
+    }
+
     ImGui.SetNextWindowSize(new Vector2(GUI.Window.Width / 2, GUI.Window.Height), ImGuiCond.Always);
     ImGui.SetNextWindowPos(new Vector2(0, 0), ImGuiCond.Always);
 
@@ -27,24 +47,11 @@ GUI.Window.OnTick += () =>
     ImGui.Text("Controls");
     ImGui.Separator();
 
-    if (ImGui.Button("Start"))
-    {
-        cpu.bus.LoadBIOS();
-
-        cpu.bus.LoadROM("/Users/olim/Desktop/GBA/ILGBA/res/mini.gba");
-
-        cpu.R[15] = 0x08000000; // PC starts at beginning of ROM
-
-        cpu.Step();
-    }
-    ImGui.SameLine();
+    if (ImGui.Button("Load ROM"))
+        fileBrowser.Open();
 
     if (ImGui.Button("Step"))
         cpu.Step();
-
-    ImGui.SameLine();
-    if (ImGui.Button(running ? "Pause" : "Run"))
-        running = !running;
 
     ImGui.SameLine();
     if (ImGui.Button("Reset"))
@@ -85,13 +92,25 @@ GUI.Window.OnTick += () =>
 
             var instructions = disasm.Disassemble(bytes, addr);
 
+            if (instructions.Length == 0)
+            {
+                ImGui.Text(" <invalid>");
+                if (isPc) ImGui.PopStyleColor();
+                continue;
+            }
+
             foreach (var ins in instructions)
             {
+                if (ins.Id == ArmInstructionId.Invalid)
+                {
+                    ImGui.Text(" <invalid>");
+                    continue;
+                }
+
                 ImGui.Text($" {ins.Mnemonic} {ins.Operand}");
-                ImGui.SameLine();
             }
         }
-        ImGui.Text($"| { d.Name}");
+        ImGui.Separator();
         if (isPc) ImGui.PopStyleColor();
     }
 
